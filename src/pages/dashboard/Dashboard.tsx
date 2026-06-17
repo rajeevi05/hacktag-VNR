@@ -1,9 +1,6 @@
-import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useNavigate } from "react-router-dom";
 import { 
   Globe, 
@@ -11,43 +8,16 @@ import {
   Mail, 
   MessageSquare, 
   TrendingUp, 
-  ArrowUpRight,
   Sparkles,
-  Clock,
   Users,
   Zap
 } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const [userName, setUserName] = useState<string>("");
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchUserName = async () => {
-      try {
-        const { user, error } = await getCurrentUser();
-        if (user && !error) {
-          const { data: profile, error: profileError } = await getProfile(user.id);
-          if (profile && !profileError) {
-            // Use first name if available, otherwise use full name or email
-            const name = profile.first_name || profile.full_name || user.email?.split('@')[0] || 'User';
-            setUserName(name);
-          } else {
-            // Fallback to email username if no profile
-            setUserName(user.email?.split('@')[0] || 'User');
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching user data:', error);
-        setUserName('User');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchUserName();
-  }, []);
+  const { user, loading } = useAuth();
+  const userName = user?.displayName || user?.email?.split("@")[0] || "User";
 
   const stats = [
     {
@@ -113,10 +83,10 @@ export default function Dashboard() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold mb-2">
-            {isLoading ? (
-              "Welcome back! 👋"
+            {loading ? (
+              "Welcome back!"
             ) : (
-              `Welcome back, ${userName}! 👋`
+              `Welcome back, ${userName}!`
             )}
           </h1>
         

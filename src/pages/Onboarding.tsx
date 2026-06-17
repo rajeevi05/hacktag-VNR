@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,7 +31,6 @@ export default function Onboarding() {
     brandTone: 'friendly'
   });
 
-  const navigate = useNavigate();
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -50,14 +48,19 @@ export default function Onboarding() {
     setError(null);
 
     try {
-      // Save onboarding data to Firestore
+      localStorage.setItem("user", JSON.stringify({
+        id: user.uid,
+        email: user.email,
+        name: user.displayName || user.email,
+      }));
+      localStorage.setItem("onboardingData", JSON.stringify(onboardingData));
       await DbService.saveOnboarding(user.uid, onboardingData);
 
       toast({
         title: "Onboarding complete!",
         description: "Welcome to your dashboard.",
       });
-      // Navigation handled by ProtectedRoute
+      window.location.replace("/dashboard");
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
       setError(errorMessage);

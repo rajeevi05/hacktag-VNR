@@ -1,7 +1,6 @@
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  signInWithPopup,
   signInWithRedirect,
   getRedirectResult,
   GoogleAuthProvider,
@@ -38,28 +37,18 @@ export class AuthService {
     return await signInWithEmailAndPassword(auth, email, password);
   }
 
-  // ✅ Google Sign-in (Popup → Redirect fallback)
-  static async signInWithGoogle(): Promise<UserCredential | void> {
+  // ✅ Google Sign-in
+  static async signInWithGoogle(): Promise<void> {
     try {
-      return await signInWithPopup(auth, this.googleProvider);
+      await signInWithRedirect(auth, this.googleProvider);
     } catch (error: any) {
-      if (
-        error.code === "auth/popup-blocked" ||
-        error.code === "auth/popup-closed-by-user" ||
-        error.code === "auth/cancelled-popup-request"
-      ) {
-        // 🔹 Fallback: Safari, iOS, strict browsers
-        await signInWithRedirect(auth, this.googleProvider);
-        throw new Error("Redirecting to Google login...");
-      }
       throw new Error(this.getErrorMessage(error.code));
     }
   }
 
   // ✅ Handle Redirect Result (call in App.tsx on mount)
-  static async handleRedirectResult(): Promise<User | null> {
-    const result = await getRedirectResult(auth);
-    return result?.user ?? null;
+  static async handleRedirectResult(): Promise<UserCredential | null> {
+    return await getRedirectResult(auth);
   }
 
   // ✅ Resend verification email

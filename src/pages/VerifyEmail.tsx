@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AuthService } from "@/lib/authService";
@@ -8,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 export default function VerifyEmail() {
   const { user, emailVerified } = useAuth();
   const [isResending, setIsResending] = useState(false);
+  const navigate = useNavigate();
   const { toast } = useToast();
 
   // Auto-refresh user state every 3 seconds
@@ -16,12 +18,17 @@ export default function VerifyEmail() {
       return;
     }
     
-    const interval = setInterval(async () => {
-      await AuthService.reloadUser();
-    }, 3000);
+    const checkVerification = async () => {
+      const reloadedUser = await AuthService.reloadUser();
+      if (reloadedUser?.emailVerified) {
+        navigate("/onboarding", { replace: true });
+      }
+    };
+
+    const interval = setInterval(checkVerification, 3000);
     
     return () => clearInterval(interval);
-  }, [user, emailVerified]);
+  }, [user, emailVerified, navigate]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 flex items-center justify-center p-4">

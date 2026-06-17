@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,7 +8,6 @@ import { Sparkles, Mail, Lock } from "lucide-react";
 import { AuthService } from "@/lib/authService";
 import { DbService } from "@/lib/dbService";
 import { useToast } from "@/hooks/use-toast";
-import { UserCredential, AdditionalUserInfo } from "firebase/auth";
 
 export default function Signup() {
   const [email, setEmail] = useState("");
@@ -16,8 +15,18 @@ export default function Signup() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const navigate = useNavigate();
   const { toast } = useToast();
+
+  useEffect(() => {
+    const unsubscribe = AuthService.onAuthStateChange((user) => {
+      if (user) {
+        window.location.replace("/onboarding");
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -41,10 +50,10 @@ export default function Signup() {
       
       toast({
         title: "Account created!",
-        description: "Please check your email to verify your account.",
+        description: "Let's finish setting up your workspace.",
       });
       
-      navigate("/verify-email");
+      window.location.replace("/onboarding");
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
       setError(errorMessage);
@@ -63,31 +72,7 @@ export default function Signup() {
     setError(null);
 
     try {
-      const userCredential = await AuthService.signInWithGoogle();
-      
-      // Check if this is a new user (Google sign-in always creates new users on first login)
-      // For simplicity, we'll check if user document exists in Firestore
-      const existingUser = await DbService.getUser(userCredential.user.uid);
-      const isNewUser = !existingUser;
-      
-      if (isNewUser) {
-        // Create user document for new Google users
-        await DbService.createUserDocument(
-          userCredential.user.uid,
-          userCredential.user.email!,
-          userCredential.user.displayName
-        );
-        toast({
-          title: "Welcome!",
-          description: "Account created successfully with Google.",
-        });
-      } else {
-        toast({
-          title: "Welcome back!",
-          description: "Successfully signed in with Google.",
-        });
-      }
-      // Navigation handled by ProtectedRoute
+      await AuthService.signInWithGoogle();
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
       setError(errorMessage);

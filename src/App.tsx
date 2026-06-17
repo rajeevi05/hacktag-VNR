@@ -1,11 +1,12 @@
-import { useEffect } from "react";
+import { ReactNode, useEffect } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Navigate, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "@/hooks/use-theme";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
-import { OnboardingCheck } from "@/components/auth/OnboardingCheck";
-import { AuthService } from "@/lib/AuthService"; // ✅ import service
+import { AuthService } from "@/lib/authService";
+import { DbService } from "@/lib/dbService";
+import { useAuth } from "@/hooks/use-auth";
 
 // Pages
 import Index from "./pages/Index";
@@ -28,17 +29,42 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-const App = () => {
-  // 🔹 Handle Google Redirect Result once on app load
+function GoogleRedirectHandler() {
   useEffect(() => {
     (async () => {
       try {
-        const redirectUser = await AuthService.handleRedirectResult();
-        if (redirectUser) {
-          console.log("✅ Redirect login successful:", redirectUser);
-          // 👉 Here you could:
-          // - save user in context/store
-          // - navigate to dashboard
+        const result = await AuthService.handleRedirectResult();
+        if (result?.user) {
+          let hasOnboarded = false;
+
+          try {
+            const existingUser = await DbService.getUser(result.user.uid);
+
+            if (!existingUser) {
+              await DbService.createUserDocument(
+                result.user.uid,
+                result.user.email!,
+                result.user.displayName
+              );
+            }
+
+            hasOnboarded = existingUser?.hasOnboarded || false;
+
+            if (existingUser?.businessProfile) {
+              localStorage.setItem("onboardingData", JSON.stringify(existingUser.businessProfile));
+            }
+          } catch (profileError) {
+            console.warn("Signed in with Google, but could not load the Firestore profile:", profileError);
+          }
+
+          localStorage.setItem("user", JSON.stringify({
+            id: result.user.uid,
+            email: result.user.email,
+            name: result.user.displayName || result.user.email,
+            avatar: result.user.photoURL,
+          }));
+
+          window.location.replace(hasOnboarded ? "/dashboard" : "/onboarding");
         }
       } catch (err) {
         console.error("Redirect login failed:", err);
@@ -46,16 +72,56 @@ const App = () => {
     })();
   }, []);
 
+  return null;
+}
+
+function PublicOnlyRoute({ children }: { children: ReactNode }) {
+  const { user, loading, hasOnboarded } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <>{children}</>;
+  }
+
+  return <Navigate to={hasOnboarded ? "/dashboard" : "/onboarding"} replace />;
+}
+
+const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="light" storageKey="boostly-theme">
         <TooltipProvider>
-          <BrowserRouter>
+          <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+            <GoogleRedirectHandler />
             <Routes>
               {/* Public Routes */}
               <Route path="/" element={<Index />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/signup" element={<Signup />} />
+              <Route
+                path="/login"
+                element={
+                  <PublicOnlyRoute>
+                    <Login />
+                  </PublicOnlyRoute>
+                }
+              />
+              <Route
+                path="/signup"
+                element={
+                  <PublicOnlyRoute>
+                    <Signup />
+                  </PublicOnlyRoute>
+                }
+              />
 
               {/* Email Verification Route */}
               <Route
@@ -82,9 +148,7 @@ const App = () => {
                 path="/dashboard"
                 element={
                   <ProtectedRoute>
-                    <OnboardingCheck>
-                      <DashboardLayout />
-                    </OnboardingCheck>
+                    <DashboardLayout />
                   </ProtectedRoute>
                 }
               >

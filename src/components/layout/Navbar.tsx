@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -12,25 +12,20 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ThemeToggle } from "./ThemeToggle";
 import { Sparkles, Menu, X, LogOut, User, Settings } from "lucide-react";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { useAuth } from "@/hooks/use-auth";
+import { AuthService } from "@/lib/authService";
 
-export function Navbar() {
+export function Navbar(_props?: { variant?: "landing" | "dashboard" }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [user, setUser] = useState<any>(null);
-  const isMobile = useIsMobile();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
-  useEffect(() => {
-    // Get user from localStorage
-    const userData = JSON.parse(localStorage.getItem('user') || '{}');
-    setUser(userData);
-  }, []);
-
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
+    await AuthService.logout();
     localStorage.removeItem('user');
     localStorage.removeItem('onboardingData');
-    navigate('/');
+    navigate('/', { replace: true });
   };
 
   const isLandingPage = location.pathname === '/';
@@ -124,15 +119,15 @@ export function Navbar() {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                   <Avatar className="h-8 w-8">
-                    <AvatarImage src={user.avatar} alt={user.name} />
-                    <AvatarFallback>{user.name?.charAt(0) || 'U'}</AvatarFallback>
+                    <AvatarImage src={user.photoURL || undefined} alt={user.displayName || "User"} />
+                    <AvatarFallback>{user.displayName?.charAt(0) || user.email?.charAt(0) || 'U'}</AvatarFallback>
                   </Avatar>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-56" align="end" forceMount>
                 <DropdownMenuLabel className="font-normal">
                   <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">{user.name || 'User'}</p>
+                    <p className="text-sm font-medium leading-none">{user.displayName || 'User'}</p>
                     <p className="text-xs leading-none text-muted-foreground">
                       {user.email}
                     </p>

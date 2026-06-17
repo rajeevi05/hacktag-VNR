@@ -246,6 +246,46 @@ export interface ImageGenerationResponse {
 
 }
 
+const WEBSITE_GENERATION_MODELS = [
+  "gemini-3.5-flash",
+  "gemini-2.5-flash",
+  "gemini-2.5-flash-lite",
+];
+
+function isGeminiQuotaError(error: any): boolean {
+  const message = String(error?.message || error || "").toLowerCase();
+  return (
+    message.includes("429") ||
+    message.includes("quota") ||
+    message.includes("rate limit") ||
+    message.includes("resource_exhausted") ||
+    message.includes("too many requests")
+  );
+}
+
+async function generateGeminiTextWithFallbackModels(prompt: string): Promise<string> {
+  let lastError: any = null;
+
+  for (const modelName of WEBSITE_GENERATION_MODELS) {
+    try {
+      console.log(`🚀 Sending website request to Gemini model: ${modelName}`);
+      const model = genAI.getGenerativeModel({ model: modelName });
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      return response.text();
+    } catch (error: any) {
+      lastError = error;
+      console.warn(`⚠️ Gemini model ${modelName} failed:`, error);
+
+      if (!isGeminiQuotaError(error)) {
+        throw error;
+      }
+    }
+  }
+
+  throw lastError;
+}
+
 export async function generateWebsite(request: WebsiteGenerationRequest): Promise<WebsiteGenerationResponse> {
   try {
     console.log('🔍 Starting website generation for:', request.description);
@@ -260,7 +300,6 @@ export async function generateWebsite(request: WebsiteGenerationRequest): Promis
     }
     
     console.log('🔑 API key found, initializing Gemini...');
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-pro" });
     
 
     // Analyze business type from description
@@ -378,10 +417,7 @@ Return the result in the following JSON format:
 ⚠ This is not a one-size-fits-all website. You are building a visually stunning, business-specific site with custom content and visuals. Every output must feel intentional and fully tailored to the business type.
 `;
 
-    console.log('🚀 Sending request to Gemini API...');
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
+    const text = await generateGeminiTextWithFallbackModels(prompt);
     
     console.log('📥 Raw API response received:', text.substring(0, 200) + '...');
     
@@ -457,6 +493,14 @@ Return the result in the following JSON format:
     };
   } catch (error: any) {
     console.error('❌ Error generating website with Gemini API:', error);
+    if (isGeminiQuotaError(error)) {
+      const fallback = generateFuturisticFallbackWebsite(request);
+      return {
+        ...fallback,
+        description: `${fallback.description}. Gemini quota was exhausted, so this was generated locally.`
+      };
+    }
+
     return {
       html: `<div style="padding: 20px; text-align: center;"><h2>❌ Generation Failed</h2><p>Error: ${error.message}</p><p>Please check your API key and try again.</p></div>`,
       css: 'body { font-family: Arial, sans-serif; background: #f5f5f5; }',

@@ -7,8 +7,9 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { user, loading, emailVerified, hasOnboarded } = useAuth();
+  const { user, loading, hasOnboarded } = useAuth();
   const location = useLocation();
+  const canEnterDashboard = hasOnboarded || Boolean(localStorage.getItem("onboardingData"));
 
   if (loading) {
     return (
@@ -21,23 +22,15 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     );
   }
 
-  // Not logged in → redirect to login
   if (!user) {
     return <Navigate to="/login" replace />;
   }
 
-  // Logged in but email not verified → redirect to email verification
-  if (!emailVerified && location.pathname !== "/verify-email") {
-    return <Navigate to="/verify-email" replace />;
-  }
-
-  // Email verified but not onboarded → redirect to onboarding
-  if (emailVerified && !hasOnboarded && location.pathname !== "/onboarding") {
+  if (!canEnterDashboard && location.pathname !== "/onboarding") {
     return <Navigate to="/onboarding" replace />;
   }
 
-  // Email verified and onboarded but on verify/onboarding pages → redirect to dashboard
-  if (emailVerified && hasOnboarded && (location.pathname === "/verify-email" || location.pathname === "/onboarding")) {
+  if (canEnterDashboard && (location.pathname === "/verify-email" || location.pathname === "/onboarding")) {
     return <Navigate to="/dashboard" replace />;
   }
 

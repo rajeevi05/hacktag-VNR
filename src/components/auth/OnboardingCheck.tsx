@@ -1,38 +1,15 @@
-import { ReactNode, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { ReactNode } from "react";
+import { Navigate } from "react-router-dom";
+import { useAuth } from "@/hooks/use-auth";
 
 interface OnboardingCheckProps {
   children: ReactNode;
 }
 
 export function OnboardingCheck({ children }: OnboardingCheckProps) {
-  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState<boolean | null>(null);
-  const navigate = useNavigate();
+  const { loading, hasOnboarded } = useAuth();
 
-  useEffect(() => {
-    // Check if user has completed onboarding via localStorage
-    const onboardingData = localStorage.getItem('onboardingData');
-    const user = localStorage.getItem('user');
-    
-    if (user && onboardingData) {
-      try {
-        const userData = JSON.parse(user);
-        const onboarding = JSON.parse(onboardingData);
-        
-        if (userData.id && onboarding.businessName) {
-          setHasCompletedOnboarding(true);
-          return;
-        }
-      } catch (error) {
-        console.error('Error parsing onboarding data:', error);
-      }
-    }
-    
-    setHasCompletedOnboarding(false);
-    navigate('/onboarding');
-  }, [navigate]);
-
-  if (hasCompletedOnboarding === null) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
@@ -43,8 +20,8 @@ export function OnboardingCheck({ children }: OnboardingCheckProps) {
     );
   }
 
-  if (!hasCompletedOnboarding) {
-    return null;
+  if (!hasOnboarded) {
+    return <Navigate to="/onboarding" replace />;
   }
 
   return <>{children}</>;
